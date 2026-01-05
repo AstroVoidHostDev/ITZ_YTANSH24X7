@@ -1,28 +1,26 @@
 #!/bin/bash
 
-# ---------- COLORS ----------
-RED="\e[31m"
-GREEN="\e[32m"
-YELLOW="\e[33m"
-CYAN="\e[36m"
-BOLD="\e[1m"
-RESET="\e[0m"
+# ================= COLORS =================
+RED="\033[31m"
+GREEN="\033[32m"
+YELLOW="\033[33m"
+CYAN="\033[36m"
+BOLD="\033[1m"
+RESET="\033[0m"
 
+# ================= FUNCTIONS =================
 animate() {
-  text="$1"
-  color="$2"
-  for ((i=0; i<${#text}; i++)); do
+  text="$1"; color="$2"
+  for ((i=0;i<${#text};i++)); do
     echo -ne "${color}${text:$i:1}${RESET}"
-    sleep 0.04
+    sleep 0.03
   done
   echo
 }
 
-pause() {
-  read -p "Press ENTER to continue..."
-}
+pause(){ read -p "Press ENTER to continue..."; }
 
-banner() {
+banner(){
 clear
 echo -e "${BOLD}${CYAN}"
 echo "██╗████████╗███████╗    ██╗   ██╗████████╗ █████╗ ███╗   ██╗███████╗██╗  ██╗"
@@ -31,99 +29,83 @@ echo "██║   ██║     ███╔╝      ╚████╔╝    �
 echo "██║   ██║    ███╔╝        ╚██╔╝     ██║   ██╔══██║██║╚██╗██║╚════██║██╔══██║"
 echo "██║   ██║   ███████╗       ██║      ██║   ██║  ██║██║ ╚████║███████║██║  ██║"
 echo "╚═╝   ╚═╝   ╚══════╝       ╚═╝      ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝"
-echo -e "${RESET}"
-echo -e "${BOLD}      ITZ_YTANSH MC SERVER MAKER${RESET}"
+echo -e "${RESET}${BOLD}        ITZ_YTANSH MC SERVER MAKER${RESET}"
 echo
 }
 
-select_ram() {
-echo -e "${YELLOW}[1] 2GB RAM"
-echo -e "[2] 4GB RAM"
-echo -e "[3] 6GB RAM"
-echo -e "[4] 8GB RAM${RESET}"
-echo
+select_ram(){
+echo -e "${YELLOW}[1] 2GB  [2] 4GB  [3] 6GB  [4] 8GB${RESET}"
 read -p "Select RAM -> " r
-
 case $r in
-  1) RAM="2G" ;;
-  2) RAM="4G" ;;
-  3) RAM="6G" ;;
-  4) RAM="8G" ;;
-  *) echo -e "${RED}Invalid RAM selection${RESET}"; return 1 ;;
+  1) RAM="2G";;
+  2) RAM="4G";;
+  3) RAM="6G";;
+  4) RAM="8G";;
+  *) echo -e "${RED}Invalid RAM${RESET}"; return 1;;
 esac
-return 0
 }
 
-create_server() {
+check_java(){
+command -v java >/dev/null || {
+  echo "Installing Java..."
+  apt update && apt install openjdk-17-jre -y
+}
+}
+
+create_server(){
 animate "Creating..." "$YELLOW"
 
-read -p "Type -> paper : " check
-[[ "$check" != "paper" ]] && animate "Cancelled" "$RED" && pause && return
+read -p "Type -> paper : " ok
+[[ "$ok" != "paper" ]] && animate "Cancelled" "$RED" && pause && return
 
-read -p "Version -> " version
-read -p "Server Name (no spaces) -> " name
-
-[[ "$name" =~ \  ]] && echo "No spaces allowed!" && pause && return
+read -p "Minecraft Version -> " ver
+read -p "Server Name (no space) -> " name
+[[ "$name" =~ \  ]] && echo "No spaces allowed" && pause && return
 
 select_ram || { pause; return; }
 
-mkdir -p servers/$name
-cd servers/$name || exit
+mkdir -p servers/$name && cd servers/$name || exit
 
 animate "Downloading server.jar..." "$YELLOW"
-curl -s -o server.jar https://api.papermc.io/v2/projects/paper/versions/$version/builds/latest/downloads/paper-$version-latest.jar
+curl -s -o server.jar \
+https://api.papermc.io/v2/projects/paper/versions/$ver/builds/latest/downloads/paper-$ver-latest.jar
 
-if [[ ! -f server.jar || ! -s server.jar ]]; then
-  animate "Invalid version!" "$RED"
-  cd ../../
-  pause
-  return
-fi
+[[ ! -s server.jar ]] && animate "Invalid Version!" "$RED" && cd ../../ && pause && return
 
-echo "eula=false" > eula.txt
-read -p "EULA -> true/false : " eula
+echo "eula=true" > eula.txt
 
-[[ "$eula" != "true" ]] && animate "Cancelled" "$RED" && cd ../../ && pause && return
-
-sed -i 's/false/true/' eula.txt
-
-read -p "Create server? -> yes/no : " final
-[[ "$final" != "yes" ]] && animate "Cancelled" "$RED" && cd ../../ && pause && return
-
-animate "Starting server with $RAM RAM..." "$GREEN"
+animate "Starting server (console below)..." "$GREEN"
 java -Xms$RAM -Xmx$RAM -jar server.jar nogui
+cd ../../
 }
 
-delete_server() {
+delete_server(){
 clear
-echo -e "${BOLD}${RED}DELETE MINECRAFT SERVER${RESET}"
-echo
-
+echo -e "${RED}${BOLD}DELETE SERVER${RESET}"
 ls servers 2>/dev/null | nl
-read -p "Choose number -> " n
-
-target=$(ls servers | sed -n "${n}p")
-[[ -z "$target" ]] && echo "Invalid choice" && pause && return
-
-animate "Deleting server... Say goodbye 💔" "$RED"
-rm -rf servers/$target
-animate "Deleted successfully" "$GREEN"
+read -p "Select number -> " n
+srv=$(ls servers | sed -n "${n}p")
+[[ -z "$srv" ]] && echo "Invalid" && pause && return
+animate "Deleting $srv..." "$RED"
+rm -rf servers/$srv
+animate "Deleted!" "$GREEN"
 pause
 }
 
+# ================= MAIN =================
 mkdir -p servers
+check_java
 
-while true
-do
+while true; do
 banner
 echo -e "${YELLOW}[1] Create Minecraft Server"
-echo -e "[2] Delete Minecraft Server${RESET}"
-echo
+echo -e "[2] Delete Minecraft Server"
+echo -e "[3] Exit${RESET}"
 read -p "Choose -> " c
-
 case $c in
-  1) create_server ;;
-  2) delete_server ;;
-  *) echo "Invalid option"; pause ;;
+  1) create_server;;
+  2) delete_server;;
+  3) exit;;
+  *) pause;;
 esac
 done
